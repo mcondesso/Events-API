@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
     - name: Checkout code
@@ -19,7 +20,7 @@ jobs:
 
     - name: Build docker image
       run:
-        docker build -t events-api:latest .
+        docker build -t events-api:latest --platform linux/amd64 .
 
     - name: Run container
       run:
@@ -43,4 +44,23 @@ jobs:
       run:
         docker stop events-api-container \
         docker rm events-api-container
-        
+
+    - name: Login to Dockerhub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Tag docker image
+      run:
+        docker tag events-api:latest mcondesso/events-api:latest
+        docker tag events-api:latest mcondesso/events-api:${{ github.sha }}
+
+    - name: Push to Dockerhub
+      run:
+        docker push mcondesso/events-api:latest
+        docker push mcondesso/events-api:${{ github.sha }}
+    
+    - name: Trigger Render redeployment
+      run:
+        curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK }}
